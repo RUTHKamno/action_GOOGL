@@ -120,8 +120,8 @@ class GoogleStockLSTM(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
         out, _ = self.lstm(x, (h0, c0))
         return self.fc(out[:, -1, :])
 
@@ -131,13 +131,13 @@ def load_all_models():
     # Load LSTM
     lstm_model = GoogleStockLSTM()
     try:
-        state_dict = torch.load("lstm_final.pt", map_location="cpu")
+        state_dict = torch.load("lstm_final.pt")
         if isinstance(state_dict, dict):
             lstm_model.load_state_dict(state_dict)
         else:
             lstm_model = state_dict
     except:
-        lstm_model = torch.jit.load("lstm_final.pt", map_location="cpu")
+        lstm_model = torch.jit.load("lstm_final.pt")
 
     if hasattr(lstm_model, "eval"):
         lstm_model.eval()
@@ -145,10 +145,10 @@ def load_all_models():
     # Load NeuralProphet
     try:
         np_model = torch.load(
-            "neural_prophet_model.pt", map_location="cpu", weights_only=False
+            "neural_prophet_model.pt", weights_only=False
         )
     except:
-        np_model = torch.load("neural_prophet_model.pt", map_location="cpu")
+        np_model = torch.load("neural_prophet_model.pt")
 
     return lstm_model, np_model
 
