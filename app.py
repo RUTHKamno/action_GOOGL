@@ -120,35 +120,45 @@ class GoogleStockLSTM(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
+        # Correction : On utilise x.device pour être agnostique (CPU/GPU)
+        device = x.device 
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
         out, _ = self.lstm(x, (h0, c0))
         return self.fc(out[:, -1, :])
 
-
 @st.cache_resource
 def load_all_models():
-    # Load LSTM
+    # 1. Autoriser explicitement NeuralProphet pour le chargement sécurisé
+    # Cela règle l'erreur "Weights only load failed"
+    try:
+        from neuralprophet.forecaster import NeuralProphet
+        torch.serialization.add_safe_globals([NeuralProphet])
+    except:
+        pass
+
+    # 2. Charger le modèle LSTM sur le CPU
     lstm_model = GoogleStockLSTM()
     try:
-        state_dict = torch.load("lstm_final.pt")
+        # map_location="cpu" est CRUCIAL pour Streamlit Cloud
+        state_dict = torch.load("lstm_final.pt", map_location=torch.device('cpu'), weights_only=False)
         if isinstance(state_dict, dict):
             lstm_model.load_state_dict(state_dict)
         else:
             lstm_model = state_dict
-    except:
-        lstm_model = torch.jit.load("lstm_final.pt")
+    except Exception as e:
+        lstm_model = torch.jit.load("lstm_final.pt", map_location=torch.device('cpu'))
 
     if hasattr(lstm_model, "eval"):
         lstm_model.eval()
 
-    # Load NeuralProphet
+    # 3. Charger le modèle NeuralProphet sur le CPU
     try:
-        np_model = torch.load(
-            "neural_prophet_model.pt", weights_only=False
-        )
-    except:
-        np_model = torch.load("neural_prophet_model.pt")
+        # On force weights_only=False car un modèle Prophet n'est pas qu'un dict de poids
+        np_model = torch.load("neural_prophet_model.pt", map_location=torch.device('cpu'), weights_only=False)
+    except Exception as e:
+        st.error(f"Erreur de chargement Prophet: {e}")
+        np_model = None
 
     return lstm_model, np_model
 
