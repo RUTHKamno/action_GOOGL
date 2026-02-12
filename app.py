@@ -1,6 +1,12 @@
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
+import torch
+
+# Disable CUDA initialization globally to avoid driver errors on Streamlit Cloud
+torch.cuda.is_available = lambda: False
+torch.cuda.device_count = lambda: 0
+torch.cuda.set_device = lambda x: None
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -152,6 +158,11 @@ def load_all_models():
         )
     except:
         np_model = torch.load("neural_prophet_model.pt", map_location="cpu")
+
+    # Explicitly force NeuralProphet to CPU
+    np_model.device = "cpu"
+    if hasattr(np_model, "trainer"):
+        np_model.trainer = None  # Force re-initialization of trainer on next prediction
 
     return lstm_model, np_model
 
