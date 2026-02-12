@@ -1,12 +1,3 @@
-import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-import torch
-
-# Disable CUDA initialization globally to avoid driver errors on Streamlit Cloud
-torch.cuda.is_available = lambda: False
-torch.cuda.device_count = lambda: 0
-torch.cuda.set_device = lambda x: None
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -159,9 +150,6 @@ def load_all_models():
     except:
         np_model = torch.load("neural_prophet_model.pt", map_location="cpu")
 
-    # Explicitly force NeuralProphet to CPU
-    np_model.device = "cpu"
-
     return lstm_model, np_model
 
 
@@ -306,19 +294,11 @@ def main():
         with st.container():
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             col_ctrl1, col_ctrl2 = st.columns([1, 1])
-            st.markdown(
-                """
-                <p style='color: #ff4b4b; font-size: 0.9rem; margin-bottom: 15px; border-left: 3px solid #ff4b4b; padding-left: 10px;'>
-                <b>Technical Note:</b> LSTM tend to forget on large datasets; that's why we recommend a shorter future prediction horizon than Neural Prophet.
-                </p>
-                """,
-                unsafe_allow_html=True,
-            )
             with col_ctrl1:
-                st.subheader("LSTM Short-Term")
+                st.subheader("LSTM Short-Term Lag")
                 lstm_days = st.slider("Forecast Horizon (Days)", 1, 15, 5)
             with col_ctrl2:
-                st.subheader("Prophet Strategic")
+                st.subheader("Prophet Strategic Trend")
                 prophet_days = st.slider("Analysis Period (Days)", 7, 60, 30)
 
             run_btn = st.button("EXECUTE NEURAL INFERENCE", use_container_width=True)
@@ -437,16 +417,6 @@ def main():
                     forecast_df.style.format(
                         "${:.2f}", na_rep="---", subset=["LSTM Pred", "Prophet Pred"]
                     ).background_gradient(cmap="Blues", subset=["LSTM Pred"])
-                )
-
-                # 4. Export to CSV
-                csv = forecast_df.to_csv().encode("utf-8")
-                st.download_button(
-                    label="📥 DOWNLOAD FORECAST MATRIX (.CSV)",
-                    data=csv,
-                    file_name=f"googl_forecast_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
                 )
 
     elif menu == "SYSTEM SPECS":
