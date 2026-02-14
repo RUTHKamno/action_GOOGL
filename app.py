@@ -137,6 +137,7 @@ class GoogleStockLSTM(nn.Module):
 
 @st.cache_resource
 def load_all_models():
+    import pytorch_lightning as pl
     # Load LSTM
     lstm_model = GoogleStockLSTM()
     try:
@@ -160,7 +161,21 @@ def load_all_models():
         np_model = torch.load("neural_prophet_model.pt", map_location="cpu")
 
     # Explicitly force NeuralProphet to CPU
-    np_model.device = "cpu"
+    np_model.device = torch.device("cpu")
+     
+     # Recréer le trainer en mode CPU strict
+    np_model.trainer = pl.Trainer(
+        accelerator='cpu',
+        devices=1,
+        logger=False,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        enable_model_summary=False
+    )
+    
+    # S'assurer que le modèle interne est aussi sur CPU
+    if hasattr(np_model, 'model') and np_model.model is not None:
+        np_model.model = np_model.model.cpu()
 
     return lstm_model, np_model
 
@@ -199,6 +214,22 @@ def recursive_predict_lstm(model, history_data, days_to_predict, seq_length=60):
 
 
 def recursive_predict_prophet(model, data, days_to_predict):
+    import pytorch_lightning as pl
+
+    # ✅ Vérifier et réinitialiser le trainer si nécessaire
+    if model.trainer is None or not hasattr(model.trainer, 'predict'):
+        model.trainer = pl.Trainer(
+            accelerator='cpu',
+            devices=1,
+            logger=False,
+            enable_checkpointing=False,
+            enable_progress_bar=False,
+            enable_model_summary=False
+        )
+    # ✅ Forcer le modèle sur CPU avant chaque prédiction
+    if hasattr(model, 'model') and model.model is not None:
+        model.model = model.model.cpu()
+        
     # Initial data preparation
     df_extended = data.reset_index()[["Date", "Close"]].rename(
         columns={"Date": "ds", "Close": "y"}
