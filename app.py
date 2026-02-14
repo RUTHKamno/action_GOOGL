@@ -161,8 +161,6 @@ def load_all_models():
 
     # Explicitly force NeuralProphet to CPU
     np_model.device = "cpu"
-    if hasattr(np_model, "trainer"):
-        np_model.trainer = None  # Force re-initialization of trainer on next prediction
 
     return lstm_model, np_model
 
